@@ -408,6 +408,67 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
+        // AI Chat shortcut (Cmd+Shift+J)
+        KeyboardShortcuts.onKeyDown(for: .toggleJABAChat) { [weak self] in
+            Task { [weak self] in
+                guard let self = self else { return }
+
+                let mouseLocation = NSEvent.mouseLocation
+                var viewModel = self.vm
+
+                if Defaults[.showOnAllDisplays] {
+                    for screen in NSScreen.screens {
+                        if screen.frame.contains(mouseLocation) {
+                            if let uuid = screen.displayUUID, let screenViewModel = self.viewModels[uuid] {
+                                viewModel = screenViewModel
+                                break
+                            }
+                        }
+                    }
+                }
+
+                await MainActor.run {
+                    // Toggle AI Chat view
+                    if self.coordinator.currentView == .jaba && viewModel.notchState == .open {
+                        // Close if already open
+                        viewModel.close()
+                        self.coordinator.currentView = .home
+                    } else {
+                        // Open AI chat
+                        self.coordinator.currentView = .jaba
+                        viewModel.open()
+                    }
+                }
+            }
+        }
+
+        // AI Chat Voice shortcut (Cmd+Shift+V) - Reserved for future voice mode
+        KeyboardShortcuts.onKeyDown(for: .toggleJABAVoice) { [weak self] in
+            Task { [weak self] in
+                guard let self = self else { return }
+
+                let mouseLocation = NSEvent.mouseLocation
+                var viewModel = self.vm
+
+                if Defaults[.showOnAllDisplays] {
+                    for screen in NSScreen.screens {
+                        if screen.frame.contains(mouseLocation) {
+                            if let uuid = screen.displayUUID, let screenViewModel = self.viewModels[uuid] {
+                                viewModel = screenViewModel
+                                break
+                            }
+                        }
+                    }
+                }
+
+                await MainActor.run {
+                    // Open AI Chat (voice mode can be added later)
+                    self.coordinator.currentView = .jaba
+                    viewModel.open()
+                }
+            }
+        }
+
         if !Defaults[.showOnAllDisplays] {
             let viewModel = self.vm
             let window = createBoringNotchWindow(

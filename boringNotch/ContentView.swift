@@ -347,6 +347,9 @@ struct ContentView: View {
                         NotchHomeView(albumArtNamespace: albumArtNamespace)
                     case .shelf:
                         ShelfView()
+                    case .jaba:
+                        AIChatView()
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
                 }
                 .transition(
@@ -502,6 +505,10 @@ struct ContentView: View {
 
     private func doOpen() {
         withAnimation(animationSpring) {
+            // Check if Option key is pressed to open JABA
+            if NSEvent.modifierFlags.contains(.option) {
+                coordinator.currentView = .jaba
+            }
             vm.open()
         }
     }

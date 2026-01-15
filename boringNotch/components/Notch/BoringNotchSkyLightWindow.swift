@@ -109,6 +109,16 @@ class BoringNotchSkyLightWindow: NSPanel {
     
     private var observers: Set<AnyCancellable> = []
     
-    override var canBecomeKey: Bool { false }
+    // Allow keyboard input when AI Chat or other interactive views are open
+    override var canBecomeKey: Bool {
+        // Check if AI chat or other views that need keyboard input are active
+        if let contentView = contentView as? NSHostingView<ContentView> {
+            // Unfortunately we can't directly check the SwiftUI state here
+            // So we'll allow it to become key temporarily
+            return true
+        }
+        return false
+    }
+    
     override var canBecomeMain: Bool { false }
 }
