@@ -149,6 +149,22 @@ struct AIChatView: View {
                 .buttonStyle(.plain)
             }
 
+            // Reasoning toggle button
+            Button {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    ollamaManager.reasoningEnabled.toggle()
+                }
+            } label: {
+                Image(systemName: "brain")
+                    .font(.system(size: 11))
+                    .foregroundColor(ollamaManager.reasoningEnabled ? .purple : .gray)
+                    .padding(6)
+                    .background(ollamaManager.reasoningEnabled ? Color.purple.opacity(0.15) : Color.white.opacity(0.05))
+                    .clipShape(Circle())
+            }
+            .buttonStyle(.plain)
+            .help("Toggle reasoning display")
+
             // Clear button
             if !ollamaManager.messages.isEmpty {
                 Button {
@@ -237,9 +253,13 @@ struct AIChatView: View {
                                 .transition(.opacity.combined(with: .move(edge: .bottom)))
                         }
 
-                        // Streaming indicator
+                        // Streaming indicator (shows thinking state if model is reasoning)
                         if ollamaManager.isStreaming && ollamaManager.currentStreamingMessage.isEmpty {
-                            streamingIndicator
+                            if !ollamaManager.currentStreamingThinking.isEmpty && ollamaManager.reasoningEnabled {
+                                streamingThinkingIndicator
+                            } else {
+                                streamingIndicator
+                            }
                         }
                     }
                 }
@@ -274,6 +294,31 @@ struct AIChatView: View {
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
         .background(Color.white.opacity(0.05))
+        .cornerRadius(10)
+    }
+
+    private var streamingThinkingIndicator: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "brain")
+                .font(.system(size: 10))
+                .foregroundColor(.purple)
+
+            Text("Thinking...")
+                .font(.system(size: 10))
+                .foregroundColor(.purple.opacity(0.8))
+
+            // Animated dots
+            HStack(spacing: 2) {
+                ForEach(0..<3, id: \.self) { index in
+                    Circle()
+                        .fill(Color.purple.opacity(0.6))
+                        .frame(width: 4, height: 4)
+                }
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(Color.purple.opacity(0.1))
         .cornerRadius(10)
     }
 
@@ -325,7 +370,6 @@ struct AIChatView: View {
         ZStack(alignment: .leading) {
             RoundedRectangle(cornerRadius: 10)
                 .fill(Color.white.opacity(0.05))
-                .frame(minHeight: 32)
 
             if inputText.isEmpty {
                 Text(placeholderText)
@@ -347,6 +391,7 @@ struct AIChatView: View {
                     sendMessage()
                 }
         }
+        .fixedSize(horizontal: false, vertical: true)  // Don't expand vertically with container
     }
 
     private var placeholderText: String {
@@ -401,6 +446,8 @@ struct AIChatView: View {
 
 struct CompactMessageBubble: View {
     let message: OllamaMessage
+    @ObservedObject var ollamaManager = OllamaManager.shared
+    @State private var isThinkingExpanded = false
 
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
@@ -412,7 +459,13 @@ struct CompactMessageBubble: View {
                     .padding(.top, 4)
             }
 
-            VStack(alignment: message.isUser ? .trailing : .leading, spacing: 2) {
+            VStack(alignment: message.isUser ? .trailing : .leading, spacing: 4) {
+                // Show thinking section for assistant messages with reasoning
+                if !message.isUser && message.hasThinking && ollamaManager.reasoningEnabled {
+                    ThinkingView(thinking: message.thinking!, isExpanded: $isThinkingExpanded)
+                }
+
+                // Main message content
                 Text(message.content)
                     .font(.system(size: 11))
                     .foregroundColor(.white)
@@ -421,6 +474,11 @@ struct CompactMessageBubble: View {
                     .background(message.isUser ? Color.blue.opacity(0.8) : Color.white.opacity(0.08))
                     .cornerRadius(10)
                     .textSelection(.enabled)
+
+                // Show metrics for assistant messages
+                if !message.isUser, let metrics = message.metrics {
+                    MessageMetricsView(metrics: metrics)
+                }
             }
             .frame(maxWidth: .infinity, alignment: message.isUser ? .trailing : .leading)
 
@@ -432,6 +490,124 @@ struct CompactMessageBubble: View {
                     .padding(.top, 4)
             }
         }
+    }
+}
+
+// MARK: - Thinking View
+
+struct ThinkingView: View {
+    let thinking: String
+    @Binding var isExpanded: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            // Header with toggle
+            Button {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    isExpanded.toggle()
+                }
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: "brain")
+                        .font(.system(size: 8))
+                    Text("Thinking")
+                        .font(.system(size: 9, weight: .medium))
+                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                        .font(.system(size: 7))
+                    Spacer()
+                }
+                .foregroundColor(.purple.opacity(0.8))
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+            }
+            .buttonStyle(.plain)
+
+            // Expandable thinking content
+            if isExpanded {
+                Text(thinking)
+                    .font(.system(size: 10))
+                    .foregroundColor(.gray)
+                    .padding(.horizontal, 8)
+                    .padding(.bottom, 6)
+                    .textSelection(.enabled)
+            }
+        }
+        .background(Color.purple.opacity(0.08))
+        .cornerRadius(8)
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Color.purple.opacity(0.2), lineWidth: 0.5)
+        )
+    }
+}
+
+// MARK: - Message Metrics View
+
+struct MessageMetricsView: View {
+    let metrics: OllamaMessageMetrics
+
+    var body: some View {
+        HStack(spacing: 8) {
+            // Tokens per second
+            MetricPill(
+                icon: "bolt.fill",
+                value: String(format: "%.1f", metrics.tokensPerSecond),
+                unit: "t/s"
+            )
+
+            // Token count
+            MetricPill(
+                icon: "number",
+                value: "\(metrics.tokenCount)",
+                unit: "tokens"
+            )
+
+            // Time to first token
+            MetricPill(
+                icon: "clock",
+                value: formatTime(metrics.timeToFirstToken),
+                unit: "TTFT"
+            )
+
+            // Total time
+            MetricPill(
+                icon: "timer",
+                value: formatTime(metrics.totalTime),
+                unit: "total"
+            )
+        }
+        .padding(.top, 4)
+        .padding(.leading, 4)
+    }
+
+    private func formatTime(_ seconds: Double) -> String {
+        if seconds < 1 {
+            return String(format: "%.0fms", seconds * 1000)
+        } else {
+            return String(format: "%.1fs", seconds)
+        }
+    }
+}
+
+struct MetricPill: View {
+    let icon: String
+    let value: String
+    let unit: String
+
+    var body: some View {
+        HStack(spacing: 3) {
+            Image(systemName: icon)
+                .font(.system(size: 7))
+            Text(value)
+                .font(.system(size: 8, weight: .medium, design: .monospaced))
+            Text(unit)
+                .font(.system(size: 7))
+        }
+        .foregroundColor(.gray.opacity(0.7))
+        .padding(.horizontal, 5)
+        .padding(.vertical, 2)
+        .background(Color.white.opacity(0.03))
+        .cornerRadius(4)
     }
 }
 

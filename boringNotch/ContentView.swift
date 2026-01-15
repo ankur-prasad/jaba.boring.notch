@@ -147,13 +147,13 @@ struct ContentView: View {
                             }
                     }
                     .onReceive(NotificationCenter.default.publisher(for: .sharingDidFinish)) { _ in
-                        if vm.notchState == .open && !isHovering && !vm.isBatteryPopoverActive {
+                        if vm.notchState == .open && !isHovering && !vm.isBatteryPopoverActive && coordinator.currentView != .jaba {
                             hoverTask?.cancel()
                             hoverTask = Task {
                                 try? await Task.sleep(for: .milliseconds(100))
                                 guard !Task.isCancelled else { return }
                                 await MainActor.run {
-                                    if self.vm.notchState == .open && !self.isHovering && !self.vm.isBatteryPopoverActive && !SharingStateManager.shared.preventNotchClose {
+                                    if self.vm.notchState == .open && !self.isHovering && !self.vm.isBatteryPopoverActive && !SharingStateManager.shared.preventNotchClose && self.coordinator.currentView != .jaba {
                                         self.vm.close()
                                     }
                                 }
@@ -168,13 +168,13 @@ struct ContentView: View {
                         }
                     }
                     .onChange(of: vm.isBatteryPopoverActive) {
-                        if !vm.isBatteryPopoverActive && !isHovering && vm.notchState == .open && !SharingStateManager.shared.preventNotchClose {
+                        if !vm.isBatteryPopoverActive && !isHovering && vm.notchState == .open && !SharingStateManager.shared.preventNotchClose && coordinator.currentView != .jaba {
                             hoverTask?.cancel()
                             hoverTask = Task {
                                 try? await Task.sleep(for: .milliseconds(100))
                                 guard !Task.isCancelled else { return }
                                 await MainActor.run {
-                                    if !self.vm.isBatteryPopoverActive && !self.isHovering && self.vm.notchState == .open && !SharingStateManager.shared.preventNotchClose {
+                                    if !self.vm.isBatteryPopoverActive && !self.isHovering && self.vm.notchState == .open && !SharingStateManager.shared.preventNotchClose && self.coordinator.currentView != .jaba {
                                         self.vm.close()
                                     }
                                 }
@@ -548,13 +548,16 @@ struct ContentView: View {
             hoverTask = Task {
                 try? await Task.sleep(for: .milliseconds(100))
                 guard !Task.isCancelled else { return }
-                
+
                 await MainActor.run {
                     withAnimation(animationSpring) {
                         self.isHovering = false
                     }
-                    
-                    if self.vm.notchState == .open && !self.vm.isBatteryPopoverActive && !SharingStateManager.shared.preventNotchClose {
+
+                    // Don't auto-close when on AI chat view
+                    let isOnAIChat = self.coordinator.currentView == .jaba
+
+                    if self.vm.notchState == .open && !self.vm.isBatteryPopoverActive && !SharingStateManager.shared.preventNotchClose && !isOnAIChat {
                         self.vm.close()
                     }
                 }
