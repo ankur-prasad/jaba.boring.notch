@@ -16,7 +16,8 @@ struct TabModel: Identifiable {
 
 let tabs = [
     TabModel(label: "Home", icon: "house.fill", view: .home),
-    TabModel(label: "Shelf", icon: "tray.fill", view: .shelf)
+    TabModel(label: "Shelf", icon: "tray.fill", view: .shelf),
+    TabModel(label: "AI", icon: "sparkles", view: .jaba)
 ]
 
 struct TabSelectionView: View {
@@ -28,6 +29,11 @@ struct TabSelectionView: View {
                     TabButton(label: tab.label, icon: tab.icon, selected: coordinator.currentView == tab.view) {
                         withAnimation(.smooth) {
                             coordinator.currentView = tab.view
+                        }
+                        // Activate app and make window key for AI chat to receive focus
+                        if tab.view == .jaba {
+                            NSApp.activate(ignoringOtherApps: true)
+                            NSApp.keyWindow?.makeKeyAndOrderFront(nil)
                         }
                     }
                     .frame(height: 26)

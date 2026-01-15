@@ -40,6 +40,9 @@ class BoringViewModel: NSObject, ObservableObject {
     let webcamManager = WebcamManager.shared
     @Published var isCameraExpanded: Bool = false
     @Published var isRequestingAuthorization: Bool = false
+
+    // Track user's manual chat height (nil means auto-sizing)
+    @Published var userChatHeight: CGFloat? = nil
     
     deinit {
         destroy()
@@ -189,12 +192,67 @@ class BoringViewModel: NSObject, ObservableObject {
         return false
     }
 
-    func open() {
+    func open(for view: NotchViews = .home) {
+        // Always use standard notch size - chat view will adjust its own size via updateChatSize
         self.notchSize = openNotchSize
         self.notchState = .open
-        
+
         // Force music information update when notch is opened
         MusicManager.shared.forceUpdate()
+    }
+
+    /// Updates the notch size based on message count for chat view (initial sizing)
+    func updateChatSize(messageCount: Int) {
+        // If user has manually set a height, use that
+        if let userHeight = userChatHeight {
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                self.notchSize = CGSize(width: 640, height: userHeight)
+            }
+            return
+        }
+
+        let headerHeight: CGFloat = 50
+        let inputHeight: CGFloat = 70  // input + resize handle
+        let messageRowHeight: CGFloat = 60  // Approximate height per message
+
+        let baseHeight = headerHeight + inputHeight
+        let messagesHeight = CGFloat(messageCount) * messageRowHeight
+        let targetHeight = min(baseHeight + messagesHeight, chatMaxOpenHeight)
+
+        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+            self.notchSize = CGSize(width: 640, height: max(chatMinOpenHeight, targetHeight))
+        }
+    }
+
+    /// Expands the chat height if content requires more space (won't shrink user's manual size)
+    func expandChatIfNeeded(messageCount: Int) {
+        let headerHeight: CGFloat = 50
+        let inputHeight: CGFloat = 70
+        let messageRowHeight: CGFloat = 60
+
+        let baseHeight = headerHeight + inputHeight
+        let messagesHeight = CGFloat(messageCount) * messageRowHeight
+        let contentHeight = min(baseHeight + messagesHeight, chatMaxOpenHeight)
+
+        // Only expand, never shrink (respect user's size if larger)
+        let targetHeight = max(notchSize.height, contentHeight)
+
+        if targetHeight > notchSize.height {
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                self.notchSize = CGSize(width: 640, height: targetHeight)
+            }
+        }
+    }
+
+    /// Sets the chat height directly (from user drag)
+    func setChatHeight(_ height: CGFloat) {
+        userChatHeight = height
+        self.notchSize = CGSize(width: 640, height: height)
+    }
+
+    /// Resets user's manual height preference
+    func resetChatHeight() {
+        userChatHeight = nil
     }
 
     func close() {

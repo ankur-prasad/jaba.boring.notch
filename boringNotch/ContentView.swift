@@ -349,7 +349,7 @@ struct ContentView: View {
                         ShelfView()
                     case .jaba:
                         AIChatView()
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .frame(maxWidth: .infinity)
                     }
                 }
                 .transition(

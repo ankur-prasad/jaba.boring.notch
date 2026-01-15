@@ -29,8 +29,11 @@ extension NSItemProvider {
     func loadData() async -> Data? {
         NSLog(String(describing: self.registeredTypeIdentifiers))
         guard hasItemConformingToTypeIdentifier(UTType.data.identifier) else { return nil }
+        // Capture self as nonisolated(unsafe) since NSItemProvider is not Sendable but
+        // we are using it safely within the continuation
+        nonisolated(unsafe) let provider = self
         return await withCheckedContinuation { (cont: CheckedContinuation<Data?, Never>) in
-            loadItem(forTypeIdentifier: UTType.data.identifier, options: nil) { item, error in
+            provider.loadItem(forTypeIdentifier: UTType.data.identifier, options: nil) { item, error in
                 if let error = error {
                     print("Error loading data for type \(UTType.data.identifier): \(error.localizedDescription)")
                     cont.resume(returning: nil)
@@ -41,7 +44,7 @@ extension NSItemProvider {
                         cont.resume(returning: nil)
                         return
                     }
-                    self.suggestedName = self.suggestedName ?? url.lastPathComponent
+                    provider.suggestedName = provider.suggestedName ?? url.lastPathComponent
                     
                     let fileManager = FileManager.default
                     let folderURL = url.deletingLastPathComponent()

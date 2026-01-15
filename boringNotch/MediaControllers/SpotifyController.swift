@@ -9,7 +9,7 @@ import Foundation
 import Combine
 import SwiftUI
 
-class SpotifyController: MediaControllerProtocol {
+class SpotifyController: MediaControllerProtocol, @unchecked Sendable {
     func setFavorite(_ favorite: Bool) async {
         //Placeholder
     }
@@ -138,22 +138,23 @@ class SpotifyController: MediaControllerProtocol {
             artworkFetchTask?.cancel()
 
             let currentState = state
+            nonisolated(unsafe) weak var weakSelf = self
 
             artworkFetchTask = Task {
                 do {
                     let data = try await ImageService.shared.fetchImageData(from: url)
 
-                    await MainActor.run { [weak self] in
-                        guard let self = self else { return }
+                    await MainActor.run {
+                        guard let strongSelf = weakSelf else { return }
                         var updatedState = currentState
                         updatedState.artwork = data
-                        self.playbackState = updatedState
-                        self.lastArtworkURL = artworkURL
-                        self.artworkFetchTask = nil
+                        strongSelf.playbackState = updatedState
+                        strongSelf.lastArtworkURL = artworkURL
+                        strongSelf.artworkFetchTask = nil
                     }
                 } catch {
-                    await MainActor.run { [weak self] in
-                        self?.artworkFetchTask = nil
+                    await MainActor.run {
+                        weakSelf?.artworkFetchTask = nil
                     }
                 }
             }

@@ -415,12 +415,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
                 let mouseLocation = NSEvent.mouseLocation
                 var viewModel = self.vm
+                var targetWindow: NSWindow? = self.window
 
                 if Defaults[.showOnAllDisplays] {
                     for screen in NSScreen.screens {
                         if screen.frame.contains(mouseLocation) {
                             if let uuid = screen.displayUUID, let screenViewModel = self.viewModels[uuid] {
                                 viewModel = screenViewModel
+                                targetWindow = self.windows[uuid]
                                 break
                             }
                         }
@@ -434,9 +436,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                         viewModel.close()
                         self.coordinator.currentView = .home
                     } else {
-                        // Open AI chat
+                        // Open AI chat with minimal size
                         self.coordinator.currentView = .jaba
-                        viewModel.open()
+                        viewModel.open(for: .jaba)
+
+                        // Make the window key so it can accept keyboard input
+                        // Need to activate the app first for the window to accept focus
+                        NSApp.activate(ignoringOtherApps: true)
+                        targetWindow?.makeKeyAndOrderFront(nil)
                     }
                 }
             }

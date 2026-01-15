@@ -6,6 +6,7 @@
 //
 
 import Cocoa
+import SwiftUI
 import SkyLightWindow
 import Defaults
 import Combine
@@ -111,10 +112,8 @@ class BoringNotchSkyLightWindow: NSPanel {
     
     // Allow keyboard input when AI Chat or other interactive views are open
     override var canBecomeKey: Bool {
-        // Check if AI chat or other views that need keyboard input are active
-        if let contentView = contentView as? NSHostingView<ContentView> {
-            // Unfortunately we can't directly check the SwiftUI state here
-            // So we'll allow it to become key temporarily
+        // Allow key if the content view is any NSHostingView subclass (SwiftUI content)
+        if let contentView = contentView, String(describing: type(of: contentView)).contains("NSHostingView") {
             return true
         }
         return false
